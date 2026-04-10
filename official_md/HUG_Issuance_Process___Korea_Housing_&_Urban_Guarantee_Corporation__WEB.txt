@@ -1,0 +1,77 @@
+# 상품명: Issuance Process | Korea Housing & Urban Guarantee Corporation
+기관명: HUG
+원본 URL: http://www.khug.or.kr/hug/web/en/02/en02000002.jsp
+수집일: 2026-03-23 17:47:45
+출처유형: WEB
+
+## 기타
+Issuance Process
+Housing Guarantees Guarantee Products Issuance Process Fulfilment Process
+Guarantee Products
+Fulfilment Process
+Performance Statistics
+Statistics
+NHUF
+The process of guarantee issuance differs for corporate customers and individual customers, but generally includes receipt of application, review of application, credit rating, etc.
+Process for Corporate Customers
+Detailed procedures may differ depending on the product.
+Process for Corporate Customers : Application Application Register Business Information Register general information of client with applicable sales branch Time required: On the spot Eligibility requirements : None Credit Rating Evaluate the credibility of a client to determine its credit grade Criteria for determining guarantee fees, interest rates on loan, guarantee limits, etc. Time required : 7 to 30 days Grade range : AAA, AA to CC, C, D (15-grades system)
+Application
+Register Business Information Register general information of client with applicable sales branch Time required: On the spot Eligibility requirements : None Credit Rating Evaluate the credibility of a client to determine its credit grade Criteria for determining guarantee fees, interest rates on loan, guarantee limits, etc. Time required : 7 to 30 days Grade range : AAA, AA to CC, C, D (15-grades system)
+Register Business Information Register general information of client with applicable sales branch Time required: On the spot Eligibility requirements : None
+Register general information of client with applicable sales branch
+Time required: On the spot
+Eligibility requirements : None
+Credit Rating Evaluate the credibility of a client to determine its credit grade Criteria for determining guarantee fees, interest rates on loan, guarantee limits, etc. Time required : 7 to 30 days Grade range : AAA, AA to CC, C, D (15-grades system)
+Evaluate the credibility of a client to determine its credit grade
+Criteria for determining guarantee fees, interest rates on loan, guarantee limits, etc.
+Time required : 7 to 30 days
+Grade range : AAA, AA to CC, C, D (15-grades system)
+Process for Corporate Customers : Review of Application Review of Application Guarantee Application Submit a guarantee application along with required documents Guarantee Review Review the application to verify whether it meets the criteria for guarantee prohibition or limitation, whether all required documents are submitted, and eligibility of the security, etc. in accordance with corporate bylaws
+Review of Application
+Guarantee Application Submit a guarantee application along with required documents Guarantee Review Review the application to verify whether it meets the criteria for guarantee prohibition or limitation, whether all required documents are submitted, and eligibility of the security, etc. in accordance with corporate bylaws
+Guarantee Application Submit a guarantee application along with required documents
+Submit a guarantee application along with required documents
+Guarantee Review Review the application to verify whether it meets the criteria for guarantee prohibition or limitation, whether all required documents are submitted, and eligibility of the security, etc. in accordance with corporate bylaws
+Review the application to verify whether it meets the criteria for guarantee prohibition or limitation, whether all required documents are submitted, and eligibility of the security, etc. in accordance with corporate bylaws
+Process for Corporate Customers : Guarantee Issuance Guarantee Issuance Guarantee Liability Agreement Finalize the rights and obligations of guarantee applicant and HUG Time required: 1 to 3 days Fee Payment Apply different fee, discount, surcharge rates depending on credit grade Issue a guarantee certificate upon full payment of the fee Guarantee Issuance Issue a guarantee certificate if the review determines that issuance of guarantee is appropriate After the issuance of certificate, it can be re-issued or additional guarantee can be issued
+Guarantee Issuance
+Guarantee Liability Agreement Finalize the rights and obligations of guarantee applicant and HUG Time required: 1 to 3 days Fee Payment Apply different fee, discount, surcharge rates depending on credit grade Issue a guarantee certificate upon full payment of the fee Guarantee Issuance Issue a guarantee certificate if the review determines that issuance of guarantee is appropriate After the issuance of certificate, it can be re-issued or additional guarantee can be issued
+Guarantee Liability Agreement Finalize the rights and obligations of guarantee applicant and HUG Time required: 1 to 3 days
+Finalize the rights and obligations of guarantee applicant and HUG
+Time required: 1 to 3 days
+Fee Payment Apply different fee, discount, surcharge rates depending on credit grade Issue a guarantee certificate upon full payment of the fee
+Apply different fee, discount, surcharge rates depending on credit grade
+Issue a guarantee certificate upon full payment of the fee
+Guarantee Issuance Issue a guarantee certificate if the review determines that issuance of guarantee is appropriate After the issuance of certificate, it can be re-issued or additional guarantee can be issued
+Issue a guarantee certificate if the review determines that issuance of guarantee is appropriate
+After the issuance of certificate, it can be re-issued or additional guarantee can be issued
+Process for Individual Customers
+Guarantees for individual customers are classified into group guarantees and individual guarantees. Detailed procedures may differ depending on the product.
+Project-based guarantees issued to a group of participating customers (Guarantee for Housing Purchase Loan, Guarantee for Rental Housing Lease Loan, Guarantee for Housing Redevelopment Loan, Guarantee for a Refund of Jeonse Deposit (for developers), Guarantee for Jeonse Deposit Loan/Refund (for developers), etc
+Process for Individual Customers(Group Guarantee Products) : Application for a group guarantee Application for a group guarantee Application for a group guarantee is filed by a developer in consultation with a bank
+Application for a group guarantee
+Application for a group guarantee is filed by a developer in consultation with a bank
+Process for Individual Customers(Group Guarantee Products) : Review and approval Review and approval Review the application for eligibility and approve it
+Review and approval
+Review the application for eligibility and approve it
+Process for Individual Customers(Group Guarantee Products) : Conclusion of Guarantee Liability Agreement Conclusion of Guarantee Liability Agreement Close a guarantee liability agreement and entrust collateral security to HUG
+Conclusion of Guarantee Liability Agreement
+Close a guarantee liability agreement and entrust collateral security to HUG
+Process for Individual Customers(Group Guarantee Products) : Application by individual customers Application by individual customers Application for a guarantee is filed by an individual customer who signed a Jeonse lease contract
+Application by individual customers
+Application for a guarantee is filed by an individual customer who signed a Jeonse lease contract
+Process for Individual Customers(Group Guarantee Products) : Credit investigation · Guarantee review Credit investigation · Guarantee review Review the application to verify the eligibility for a guarantee, etc.
+Credit investigation · Guarantee review
+Review the application to verify the eligibility for a guarantee, etc.
+Process for Individual Customers(Group Guarantee Products) : Guarantee Issuance Guarantee Issuance Pay the guarantee fee
+Pay the guarantee fee
+Tenant-based guarantees issued to individual customers (Guarantee for a Refund of Jeonse Deposit (for tenants), Guarantee for Jeonse Deposit Loan/Refund (for tenants), Guarantee for Payment of Rent, Guarantee for Home Purchase Loan for Rental Purposes, Guarantee for Jeonse Deposit Loan Covered by National Housing Fund, etc.)
+Process for Individual Customers(Individual Guarantee Products) : Guarantee Consultation Guarantee Consultation Available at every HUG sales branch and every Wooribank branch
+Guarantee Consultation
+Available at every HUG sales branch and every Wooribank branch
+Process for Individual Customers(Individual Guarantee Products) : Application Application Submit required documents for application
+Submit required documents for application
+Process for Individual Customers(Individual Guarantee Products) : Credit investigation · Guarantee review Credit investigation · Guarantee review Review the application to verify the eligibility for a guarantee, et
+Review the application to verify the eligibility for a guarantee, et
+Process for Individual Customers(Individual Guarantee Products) : Guarantee Issuance Guarantee Issuance Pay the guarantee fee
