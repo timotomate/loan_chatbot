@@ -3,14 +3,11 @@ import re
 from datetime import datetime
 
 
-# =========================
-# 설정
-# =========================
 INPUT_DIR = Path("./내규_md")
 OUTPUT_DIR = Path("./내규_md")
 FALLBACK_INPUT_DIR = Path(".")
 
-# 원본 내규 파일명 예시: "LD10 대출종류 및 취급방법(...).md"
+# Example source filename: "LD10 대출종류 및 취급방법(...).md"
 SOURCE_FILE_RE = re.compile(r"^(LD\d+)\s+.*\.md$", re.IGNORECASE)
 
 
@@ -19,9 +16,9 @@ def yaml_escape(value: str) -> str:
 
 
 def normalize_heading_prefix(text: str) -> str:
-    """마크다운 heading prefix(예: ## )를 제거해 번호 인식을 쉽게 한다."""
+    """Strip markdown heading markers before section-number matching."""
     return re.sub(r"^\s*#+\s*", "", text).strip()
-
+    
 
 def find_source_files():
     files = []
@@ -68,8 +65,8 @@ def parse_title_and_preamble(lines):
 
 def split_level2_sections(doc_code: str, text: str):
     """
-    LD10 문서라면 10.1.1, 10.1.2 같은 둘째 소수점 자리까지 분리한다.
-    상위 헤더는 10.1, 10.2 같은 정보를 메타데이터로 유지한다.
+    For an LD document, split by level-2 sections such as 10.1.1, 10.1.2.
+    Keep the top-level section info such as 10.1 as metadata.
     """
     lines = text.splitlines()
     doc_num = doc_code.replace("LD", "")
@@ -107,8 +104,6 @@ def split_level2_sections(doc_code: str, text: str):
         if level2_match:
             flush_current()
 
-            parent_no = None
-            parent_title = None
             if current_top and level2_match.group("section_no").startswith(current_top["section_no"] + "."):
                 parent_no = current_top["section_no"]
                 parent_title = current_top["section_title"]
@@ -133,6 +128,8 @@ def split_level2_sections(doc_code: str, text: str):
 
 
 def build_output_text(source_path: Path, doc_code: str, doc_title: str, preamble: str, section: dict):
+    del preamble
+
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     source_file = source_path.name
     source_path_str = str(source_path)
@@ -142,7 +139,7 @@ def build_output_text(source_path: Path, doc_code: str, doc_title: str, preamble
     parent_section_title = section.get("parent_section_title") or ""
     body = section["content"].strip()
 
-    front_matter = [
+    output_lines = [
         "---",
         'doc_type: "internal_rule"',
         'rule_family: "LD"',
@@ -169,22 +166,12 @@ def build_output_text(source_path: Path, doc_code: str, doc_title: str, preamble
         f"- 섹션 제목: {section_title}",
         f"- 원본 파일명: {source_file}",
         "",
-    ]
-
-    if preamble:
-        front_matter.extend([
-            "## 공통 머리말",
-            preamble,
-            "",
-        ])
-
-    front_matter.extend([
         "## 본문",
         body,
         "",
-    ])
+    ]
 
-    return "\n".join(front_matter).strip() + "\n"
+    return "\n".join(output_lines).strip() + "\n"
 
 
 def split_one_file(source_path: Path, output_dir: Path):
@@ -200,7 +187,7 @@ def split_one_file(source_path: Path, output_dir: Path):
     sections = split_level2_sections(doc_code, text)
 
     if not sections:
-        print(f"[SKIP] 둘째 소수점 섹션을 찾지 못했습니다: {source_path}")
+        print(f"[SKIP] 세부 섹션을 찾지 못했습니다: {source_path}")
         return []
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -247,4 +234,3 @@ def split_ld_files_level2(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
 
 
 created_files = split_ld_files_level2()
-

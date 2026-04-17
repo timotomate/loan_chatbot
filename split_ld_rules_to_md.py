@@ -109,6 +109,8 @@ def split_top_level_sections(doc_code: str, text: str):
 
 def build_output_text(source_path: Path, doc_code: str, doc_title: str, preamble: str, section: dict):
     """분리된 내규 섹션 md 본문을 생성한다."""
+    del preamble
+
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     source_file = source_path.name
     source_path_str = str(source_path)
@@ -140,13 +142,6 @@ def build_output_text(source_path: Path, doc_code: str, doc_title: str, preamble
         f"- 원본 파일명: {source_file}",
         "",
     ]
-
-    if preamble:
-        front_matter.extend([
-            "## 공통 머리말",
-            preamble,
-            "",
-        ])
 
     front_matter.extend([
         "## 본문",
@@ -223,4 +218,3 @@ def split_ld_files(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
 
 # 주피터 노트북에 그대로 복사/붙여넣기 후 실행해도 바로 동작하도록 마지막에 실행
 created_files = split_ld_files()
-
