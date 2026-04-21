@@ -1,9 +1,12 @@
+###################
+'''
 1. 검색DB(여기서부터 시작)
 - 내규 전용 처리 유틸 신규 생성
-
+'''
+####################
 import re
 
-INTERNAL_RULE_DIR_NAME = "내규_md"
+INTERNAL_RULE_DIR_NAME = "내규소수2_md"
 
 
 def parse_simple_front_matter(text):
@@ -70,63 +73,6 @@ def build_doc_key(doc, fallback_rank=1):
     return f"{source}::chunk::{chunk_id}"
 
 
-def format_doc_display(doc, fallback_rank=1):
-    """
-    - 내규 데이터: 조항번호 + 제목 중심
-    - 그 외 데이터: 파일명#청크번호 유지
-    """
-    if doc.metadata.get("doc_type") == "internal_rule":
-        doc_code = str(doc.metadata.get("doc_code", "")).strip()
-        section_no = str(doc.metadata.get("section_no", "")).strip()
-        section_title = str(doc.metadata.get("section_title", "")).strip()
-
-        if doc_code and section_no and section_title:
-            return f"{doc_code} {section_no} {section_title}"
-        if section_no and section_title:
-            return f"{section_no} {section_title}"
-        if section_no:
-            return section_no
-
-    file_name = os.path.basename(doc.metadata.get("source", "KMS"))
-    chunk_num = doc.metadata.get("chunk_id", fallback_rank)
-    return f"{file_name}#{chunk_num}"
-
-def infer_question_profile(message):
-    """
-    질문이 규정형/전산형/사례형/기관기준형 중 어디에 가까운지
-    단순 규칙으로 점수화한다.
-    """
-    text = str(message or "").strip()
-
-    rule_keywords = [
-        "한도", "최대한도", "최대 금액", "얼마", "금리", "대상", "대출대상", "대상주택",
-        "채권보전", "승인", "심사", "중도상환", "기한연장", "가능", "불가", "요건", "조건"
-    ]
-    system_keywords = [
-        "전산", "화면", "입력", "등록", "처리", "단말기", "#", "화면번호", "어느 화면"
-    ]
-    case_keywords = [
-        "사례", "케이스", "이런 경우", "이 경우", "실무", "예외", "상담", "처리했는데"
-    ]
-    official_keywords = [
-        "hug", "hf", "sgi", "주택도시보증공사", "주택금융공사", "서울보증보험", "보증기관"
-    ]
-
-    product_hint_keywords = [
-        "전세론", "전세자금", "디딤돌", "버팀목", "우량주택", "대출종류", "상품"
-    ]
-
-    def score_keywords(keywords):
-        return sum(1 for kw in keywords if kw.lower() in text.lower())
-
-    return {
-        "rule_score": score_keywords(rule_keywords) + score_keywords(product_hint_keywords),
-        "system_score": score_keywords(system_keywords),
-        "case_score": score_keywords(case_keywords),
-        "official_score": score_keywords(official_keywords),
-    }
-
-
 def classify_source_type(doc):
     """
     문서 출처를 internal_rule / official / faq / kms 로 분류한다.
@@ -143,96 +89,6 @@ def classify_source_type(doc):
         return "kms"
     return "other"
 
-
-def rerank_documents(final_docs, message):
-    """
-    기본 우선순위 + 질문 성격을 반영해 문서를 재정렬한다.
-    기본 우선순위:
-    internal_rule > official > faq > kms
-    """
-    profile = infer_question_profile(message)
-    message_text = str(message or "").lower()
-
-    base_weights = {
-        "internal_rule": 4.0,
-        "official": 3.0,
-        "faq": 2.0,
-        "kms": 1.0,
-        "other": 0.0,
-    }
-
-    reranked = []
-    for idx, doc in enumerate(final_docs):
-        source_type = classify_source_type(doc)
-        score = base_weights.get(source_type, 0.0)
-
-        section_title = str(doc.metadata.get("section_title", "")).lower()
-        parent_section_title = str(doc.metadata.get("parent_section_title", "")).lower()
-        doc_title = str(doc.metadata.get("doc_title", "")).lower()
-        page_content = str(doc.page_content or "").lower()
-
-        # 질문이 규정형이면 내규와 official에 가산점
-        if profile["rule_score"] >= 2:
-            if source_type == "internal_rule":
-                score += 3.0
-            elif source_type == "official":
-                score += 1.5
-
-        # 질문이 전산형이면 kms 가산점
-        if profile["system_score"] >= 1 and source_type == "kms":
-            score += 3.0
-
-        # 질문이 사례형이면 faq/kms에 가산점
-        if profile["case_score"] >= 1:
-            if source_type == "faq":
-                score += 1.5
-            elif source_type == "kms":
-                score += 2.0
-
-        # 기관기준형 질문이면 official 가산점
-        if profile["official_score"] >= 1 and source_type == "official":
-            score += 2.5
-
-        # 내규 조항명 직접 매칭 가산점
-        if "대출한도" in message_text or "한도" in message_text or "최대 금액" in message_text:
-            if "대출한도" in section_title:
-                score += 4.0
-            elif "대출한도" in page_content:
-                score += 1.5
-
-        if "대상주택" in message_text and "대상주택" in section_title:
-            score += 4.0
-        if "대출대상" in message_text or ("대상" in message_text and "대출대상" in section_title):
-            if "대출대상" in section_title:
-                score += 4.0
-        if "금리" in message_text and "대출금리" in section_title:
-            score += 4.0
-        if "채권보전" in message_text and "채권보전" in section_title:
-            score += 4.0
-        if "승인" in message_text and ("심사 및 승인" in section_title or "승인" in section_title):
-            score += 3.0
-
-        # 상품명 비슷한 조항을 우대
-        matched_terms = 0
-        for token in ["우량주택전세론", "버팀목", "디딤돌", "전세자금", "전세론"]:
-            if token.lower() in message_text:
-                if token.lower() in section_title or token.lower() in parent_section_title or token.lower() in doc_title:
-                    matched_terms += 1
-        score += matched_terms * 2.0
-
-        # 숫자/금액형 질문은 금액 표현이 있는 조항을 조금 우대
-        if any(keyword in message_text for keyword in ["억원", "백만원", "금액", "최대"]):
-            if any(keyword in page_content for keyword in ["억원", "백만원", "최대"]):
-                score += 0.8
-
-        # 기존 순위가 너무 무시되지 않도록 약한 tie-breaker 반영
-        score += max(0, 0.3 - (idx * 0.02))
-
-        reranked.append((score, idx, doc))
-
-    reranked.sort(key=lambda x: (-x[0], x[1]))
-    return [doc for _, _, doc in reranked]
-# [ADDED][COPY-PASTE BLOCK 1 END]
 
 import os
 
@@ -267,41 +123,335 @@ class RemoteBgeEmbeddings(Embeddings):
         return response.data[0].embedding
 
 
-
+###################
+'''
 2. hynrid DB
 - bm25 3: vector 7
 - 참조문서 5개로 제한
+'''
+###################
 
-def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./official_md","./내규_md"]):
-    """
-    KMS와 FAQ에 개별 청킹을 적용하고, FAISS(벡터)와 BM25(키워드)를 결합한 하이브리드 리트리버를 반환합니다.
-    """
+# [NEW ACCURACY] ==========================================
+# Accuracy-oriented overrides start here.
+# main.py is left untouched; this file redefines only the pieces we want to improve.
+# =========================================================
+import json
+
+# [NEW ACCURACY] Separate retrieval breadth from final context size.
+ACC_BM25_K = 12
+ACC_VECTOR_K = 12
+ACC_HYBRID_K = 12
+ACC_FINAL_CONTEXT_K = 6
+
+PROPERTY_HINT_MAP = {
+    "대출한도": ["한도", "최대한도", "최대 금액", "최대금액", "얼마", "억원", "금액"],
+    "대출대상": ["대상", "대출대상", "대상자", "누가", "자격"],
+    "대상주택": ["대상주택", "집 조건", "물건 조건", "주택 조건", "가능한 주택", "주택요건"],
+    "대출금리": ["금리", "이율", "대출금리"],
+    "심사 및 승인": ["승인", "승인권자", "누가 승인", "결재", "전결", "심사"],
+    "채권보전": ["채권보전", "담보", "보전"],
+    "중도상환해약금": ["중도상환", "중도상환해약금", "중도상환수수료"],
+}
+
+PRODUCT_HINT_TOKENS = [
+    "우량주택전세론", "버팀목", "디딤돌", "전세자금대출", "전세자금", "전세론",
+    "주신보", "보증부월세", "오피스텔", "디딤돌대출", "중소기업취업청년",
+]
+
+
+def format_doc_display(doc, fallback_rank=1):
+    # [CHANGED ACCURACY] Include parent section context for internal rules when available.
+    if doc.metadata.get("doc_type") == "internal_rule":
+        doc_code = str(doc.metadata.get("doc_code", "")).strip()
+        section_no = str(doc.metadata.get("section_no", "")).strip()
+        section_title = str(doc.metadata.get("section_title", "")).strip()
+        parent_section_title = str(doc.metadata.get("parent_section_title", "")).strip()
+
+        if doc_code and section_no and parent_section_title and section_title and parent_section_title != section_title:
+            return f"{doc_code} {section_no} {parent_section_title} > {section_title}"
+        if doc_code and section_no and section_title:
+            return f"{doc_code} {section_no} {section_title}"
+        if section_no and section_title:
+            return f"{section_no} {section_title}"
+        if section_no:
+            return section_no
+
+    file_name = os.path.basename(doc.metadata.get("source", "KMS"))
+    chunk_num = doc.metadata.get("chunk_id", fallback_rank)
+    return f"{file_name}#{chunk_num}"
+
+
+def infer_question_profile(message):
+    # [CHANGED ACCURACY] Explicit profile includes comparison intent and normalized properties.
+    text = str(message or "").strip()
+    lower_text = text.lower()
+
+    rule_keywords = [
+        "한도", "최대한도", "최대 금액", "최대금액", "얼마", "금리", "대상", "대출대상",
+        "대상주택", "채권보전", "승인", "심사", "중도상환", "기한연장", "요건", "조건",
+    ]
+    system_keywords = [
+        "전산", "화면", "입력", "등록", "처리", "메뉴", "#", "화면번호",
+    ]
+    case_keywords = [
+        "가능", "가능한가", "경우", "케이스", "상황", "예외", "상담", "처리해야",
+    ]
+    official_keywords = [
+        "hug", "hf", "sgi", "주택도시보증공사", "주택금융공사", "서울보증보험", "보증기관",
+    ]
+    compare_keywords = [
+        "비교", "각각", "기관별", "보증기관별", "상품별",
+    ]
+
+    def score_keywords(keywords):
+        return sum(1 for kw in keywords if kw.lower() in lower_text)
+
+    institutions = []
+    if "hug" in lower_text:
+        institutions.append("HUG")
+    if "hf" in lower_text:
+        institutions.append("HF")
+    if "sgi" in lower_text:
+        institutions.append("SGI")
+
+    normalized_properties = []
+    for canonical_name, aliases in PROPERTY_HINT_MAP.items():
+        if any(alias.lower() in lower_text for alias in aliases):
+            normalized_properties.append(canonical_name)
+
+    product_hits = [token for token in PRODUCT_HINT_TOKENS if token.lower() in lower_text]
+    compare_score = score_keywords(compare_keywords)
+    if len(institutions) >= 2:
+        compare_score += 2
+
+    return {
+        "raw_text": text,
+        "rule_score": score_keywords(rule_keywords) + len(product_hits),
+        "system_score": score_keywords(system_keywords),
+        "case_score": score_keywords(case_keywords),
+        "official_score": score_keywords(official_keywords),
+        "compare_score": compare_score,
+        "is_compare": compare_score >= 1 or len(institutions) >= 2,
+        "institutions": institutions,
+        "normalized_properties": normalized_properties,
+        "product_hits": product_hits,
+    }
+
+
+def detect_doc_institutions(doc):
+    # [NEW ACCURACY] Used for compare-question coverage.
+    haystack = " ".join(
+        [
+            str(doc.metadata.get("source", "")),
+            str(doc.metadata.get("section_title", "")),
+            str(doc.metadata.get("parent_section_title", "")),
+            str(doc.metadata.get("doc_title", "")),
+            str(doc.page_content or "")[:1200],
+        ]
+    ).lower()
+    found = []
+    if "hug" in haystack or "주택도시보증공사" in haystack:
+        found.append("HUG")
+    if "hf" in haystack or "주택금융공사" in haystack or "주신보" in haystack:
+        found.append("HF")
+    if "sgi" in haystack or "서울보증보험" in haystack:
+        found.append("SGI")
+    return found
+
+
+def _score_rerank_item(doc, idx, message, profile):
+    # [NEW ACCURACY] Reason-aware rerank scoring.
+    source_type = classify_source_type(doc)
+    score = 0.0
+    reasons = []
+    message_text = str(message or "").lower()
+
+    base_weights = {
+        "internal_rule": 4.0,
+        "official": 3.0,
+        "faq": 2.0,
+        "kms": 1.0,
+        "other": 0.0,
+    }
+    base_score = base_weights.get(source_type, 0.0)
+    score += base_score
+    if base_score:
+        reasons.append(f"base:{source_type}+{base_score}")
+
+    section_title = str(doc.metadata.get("section_title", "")).lower()
+    parent_section_title = str(doc.metadata.get("parent_section_title", "")).lower()
+    doc_title = str(doc.metadata.get("doc_title", "")).lower()
+    page_content = str(doc.page_content or "").lower()
+    joined_titles = " ".join([section_title, parent_section_title, doc_title])
+
+    if profile["rule_score"] >= 2:
+        if source_type == "internal_rule":
+            score += 3.0
+            reasons.append("rule_bias:internal_rule+3.0")
+        elif source_type == "official":
+            score += 1.5
+            reasons.append("rule_bias:official+1.5")
+
+    if profile["system_score"] >= 1 and source_type == "kms":
+        score += 3.0
+        reasons.append("system_bias:kms+3.0")
+
+    if profile["case_score"] >= 1:
+        if source_type == "faq":
+            score += 1.5
+            reasons.append("case_bias:faq+1.5")
+        elif source_type == "kms":
+            score += 2.0
+            reasons.append("case_bias:kms+2.0")
+
+    if profile["official_score"] >= 1 and source_type == "official":
+        score += 2.5
+        reasons.append("official_bias:official+2.5")
+
+    if profile["is_compare"] and source_type in {"internal_rule", "official"}:
+        score += 1.8
+        reasons.append("compare_bias:core_source+1.8")
+
+    for normalized_property in profile["normalized_properties"]:
+        if normalized_property.lower() in section_title:
+            score += 4.0
+            reasons.append(f"property_title:{normalized_property}+4.0")
+        elif normalized_property.lower() in joined_titles:
+            score += 2.5
+            reasons.append(f"property_parent:{normalized_property}+2.5")
+        elif normalized_property.lower() in page_content:
+            score += 1.0
+            reasons.append(f"property_body:{normalized_property}+1.0")
+
+    matched_products = 0
+    for token in profile["product_hits"]:
+        lower_token = token.lower()
+        if lower_token in joined_titles:
+            matched_products += 1
+    if matched_products:
+        add_score = matched_products * 2.5
+        score += add_score
+        reasons.append(f"product_match+{add_score}")
+
+    for institution in profile["institutions"]:
+        if institution in detect_doc_institutions(doc):
+            score += 1.8
+            reasons.append(f"institution:{institution}+1.8")
+
+    if any(keyword in message_text for keyword in ["억원", "만원", "금액", "최대"]):
+        if any(keyword in page_content for keyword in ["억원", "만원", "금액", "최대"]):
+            score += 0.8
+            reasons.append("amount_signal+0.8")
+
+    if str(doc.metadata.get("parent_section_no", "")).strip():
+        score += 0.2
+        reasons.append("parent_section_hint+0.2")
+
+    rank_bias = max(0, 0.3 - (idx * 0.02))
+    score += rank_bias
+    reasons.append(f"base_rank_bias+{rank_bias:.2f}")
+
+    return {
+        "doc": doc,
+        "idx": idx,
+        "score": round(score, 4),
+        "source_type": source_type,
+        "institutions": detect_doc_institutions(doc),
+        "reasons": reasons,
+    }
+
+
+def rerank_documents(final_docs, message):
+    # [CHANGED ACCURACY] Rerank now stores rich debug traces.
+    profile = infer_question_profile(message)
+    scored_items = [_score_rerank_item(doc, idx, message, profile) for idx, doc in enumerate(final_docs)]
+    scored_items.sort(key=lambda item: (-item["score"], item["idx"]))
+    rerank_documents.last_debug = scored_items
+    return [item["doc"] for item in scored_items]
+
+
+def summarize_doc_candidate(doc, fallback_rank=1, bm25_rank=0, vector_rank=0, vector_distance=None, rerank_item=None):
+    # [NEW ACCURACY] Uniform candidate summary for diagnostics.
+    return {
+        "display": format_doc_display(doc, fallback_rank),
+        "source_type": classify_source_type(doc),
+        "section_no": str(doc.metadata.get("section_no", "")),
+        "section_title": str(doc.metadata.get("section_title", "")),
+        "parent_section_title": str(doc.metadata.get("parent_section_title", "")),
+        "bm25_rank": bm25_rank,
+        "vector_rank": vector_rank,
+        "vector_score": round(1 / (1 + vector_distance), 4) if vector_distance is not None else 0.0,
+        "rerank_score": rerank_item["score"] if rerank_item else 0.0,
+        "rerank_reason": " | ".join(rerank_item["reasons"]) if rerank_item else "",
+    }
+
+
+def select_context_documents(reranked_docs, message, final_limit=ACC_FINAL_CONTEXT_K):
+    # [NEW ACCURACY] Final context ordering is not identical to raw rerank order.
+    profile = infer_question_profile(message)
+    selected = []
+    selected_keys = set()
+
+    def try_add(doc):
+        doc_key = build_doc_key(doc, len(selected) + 1)
+        if doc_key in selected_keys or len(selected) >= final_limit:
+            return False
+        selected.append(doc)
+        selected_keys.add(doc_key)
+        return True
+
+    if profile["is_compare"]:
+        for institution in profile["institutions"]:
+            for preferred_source in ["internal_rule", "official", "faq", "kms"]:
+                for doc in reranked_docs:
+                    if classify_source_type(doc) != preferred_source:
+                        continue
+                    if institution in detect_doc_institutions(doc):
+                        if try_add(doc):
+                            break
+                if len(selected) >= final_limit:
+                    break
+
+    for preferred_source in ["internal_rule", "official", "faq", "kms", "other"]:
+        for doc in reranked_docs:
+            if classify_source_type(doc) == preferred_source:
+                try_add(doc)
+            if len(selected) >= final_limit:
+                break
+        if len(selected) >= final_limit:
+            break
+
+    return selected
+
+
+def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./official_md", "./내규소수2_md "]):
+    # [CHANGED ACCURACY] Wider candidate retrieval, final context capped later.
     all_splits = []
 
-    # [규칙 정의] 소스별 서로 다른 스플리터 설정
     kms_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
     faq_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-    # [ADDED] 내규는 이미 조항 단위 파일이므로 기본적으로 재청킹하지 않는다.
     rule_overflow_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=200)
 
     try:
         for path in paths:
-            if not os.path.exists(path): continue
+            if not os.path.exists(path):
+                continue
 
-            print(f"⏳ {path} 로드 및 인덱싱 중...")
-            loader = DirectoryLoader(path, glob="*.md", loader_cls=TextLoader,
-                                     loader_kwargs={'encoding': 'utf-8', 'autodetect_encoding': True})
+            print(f"Loading and indexing: {path}")
+            loader = DirectoryLoader(
+                path,
+                glob="*.md",
+                loader_cls=TextLoader,
+                loader_kwargs={"encoding": "utf-8", "autodetect_encoding": True},
+            )
             documents = loader.load()
-
-            # [CHANGED] 내규_md 문서는 front matter를 metadata로 이동
             documents = [enrich_internal_rule_doc(doc) for doc in documents]
 
             is_faq_path = "faq" in path.lower()
             is_rule_path = INTERNAL_RULE_DIR_NAME in path
-           
+
             for doc in documents:
                 if is_rule_path and is_internal_rule_doc(doc):
-                    # [CHANGED] 내규 데이터는 이미 10.1 / 10.1.1 등 의미 단위로 분리됨
                     if len(doc.page_content) <= 3000:
                         doc.metadata["chunk_id"] = 1
                         all_splits.append(doc)
@@ -317,40 +467,42 @@ def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./off
                         split.metadata["chunk_id"] = i + 1
                         all_splits.append(split)
 
-        # 3. FAISS 벡터 DB 생성 (의미 검색용)
-        print(f"⏳ 총 {len(all_splits)}개 청크 임베딩 중...")
+        print(f"Embedding total chunks: {len(all_splits)}")
         remote_embeddings = RemoteBgeEmbeddings(base_url=EMBED_BASE_URL, model_name=EMBED_MODEL)
         vectorstore = FAISS.from_documents(all_splits, remote_embeddings)
-        faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+        faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": ACC_HYBRID_K})
 
-        # 4. BM25 리트리버 생성 (키워드 검색용)
-        # 중요: 벡터 DB를 만들 때 사용한 것과 동일한 all_splits를 사용합니다.
-        print("⏳ BM25 키워드 인덱싱 중...")
+        print("Building BM25 index")
         bm25_retriever = BM25Retriever.from_documents(all_splits)
-        bm25_retriever.k = 5
+        bm25_retriever.k = ACC_BM25_K
 
-        # 5. 하이브리드 앙상블 리트리버 생성 (RRF 방식 결합)
-        # 키워드(BM25)와 의미(FAISS)의 비중을 3:7로 설정
         hybrid_retriever = EnsembleRetriever(
             retrievers=[bm25_retriever, faiss_retriever],
-            weights=[0.3, 0.7]
+            weights=[0.3, 0.7],
         )
-
-        print("✨ [KMS:800 / FAQ:2000 / 내규:무청킹(장문만 3000)] 하이브리드 리트리버 시스템 구축 완료!")
+        print(
+            f"Hybrid retriever ready: bm25_k={ACC_BM25_K}, vector_k={ACC_VECTOR_K}, "
+            f"hybrid_k={ACC_HYBRID_K}, final_context_k={ACC_FINAL_CONTEXT_K}"
+        )
         return hybrid_retriever
 
     except Exception as e:
-        print(f"❌ 상세 오류 발생: {str(e)}")
+        print(f"Retriever build error: {str(e)}")
         return None
 
-# 리트리버 초기화
+
+# [NEW ACCURACY] Rebuild retriever with the new candidate breadth settings.
 hybrid_retriever = prepare_hybrid_retriever()
 
-
+###################
+'''
 3. Agent 호출(version 03)
 - gradio 기반 chat ui
 - 답변에 대한 긍/부정 추출
 - 세션 구분
+'''
+###################
+
 
 ### Agnet(v3)
 import os
@@ -374,7 +526,8 @@ import os
 from datetime import datetime
 import gradio as gr
 
-FEEDBACK_FILE = "timo_ver0.3_hana_on_feedback_log.csv"
+FEEDBACK_FILE = "timo_ver0.4_hana_on_feedback_log.csv"
+DIAGNOSTIC_LOG_FILE = "timo_ver0.4_hana_on_diagnostic_log.jsonl"  # [NEW ACCURACY]
 # [2] 피드백 저장 함수 (상세 로그 반영)
 def handle_like(data: gr.LikeData, history, *args):
     try:
@@ -466,92 +619,170 @@ PROMPT_RAG_USER = """아래 [규정 및 전산 가이드]를 참고하여 사용
 가독성 있게 정리하여 답변하고, 마지막에 '참고 문헌: {src}'를 기재하세요."""
 
 
+###################
+'''
 3. RAG 하이브리드 인풋 RAG
+'''
+###################
+
+
 # [2] Hana_on Predict 함수 (SyntaxWarning 해결 및 청크 식별자 반영)
+# [NEW ACCURACY] ==========================================
+# hana_on_predict override with diagnostics and staged selection
+# =========================================================
+def save_diagnostic_log(record):
+    # [NEW ACCURACY] Separate structured diagnostics from feedback CSV.
+    try:
+        with open(DIAGNOSTIC_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as diag_err:
+        print(f"[diagnostic-log-error] {diag_err}")
+
+
 def hana_on_predict(message, history, context_turns=0):
     try:
         search_query = message
-       
-        # [Step 1] 질문 재구성 (멀티턴 제어) [cite: 131, 132]
+
         if context_turns > 0 and history and len(history) > 0:
             recent_context = ""
             for msg in history[-context_turns:]:
                 role = "Q" if msg["role"] == "user" else "A"
                 recent_context += f"{role}: {msg['content'][:50]}\n"
 
-            # 쉼표 누락 방지를 위해 명확하게 구문 작성
             re_query_res = client.chat.completions.create(
                 model=MODEL,
                 messages=[{
                     "role": "user",
                     "content": PROMPT_RE_QUERY.format(recent_context=recent_context, message=message)
                 }],
-                temperature=0,  # 뒤에 쉼표를 명시하여 다음 인자와 구분
+                temperature=0,
             )
             search_query = re_query_res.choices[0].message.content
 
-        # [Step 2] 하이브리드 검색 및 분석 [cite: 134]
+        question_profile = infer_question_profile(message)
         bm25_retriever = hybrid_retriever.retrievers[0]
         faiss_retriever = hybrid_retriever.retrievers[1]
-       
-        bm25_candidates = bm25_retriever.invoke(search_query)
-        # FAISS는 유사도 점수 분석을 위해 similarity_search_with_score 사용 [cite: 134]
-        vector_candidates = faiss_retriever.vectorstore.similarity_search_with_score(search_query, k=5)
 
-        # [CHANGED] 분석용 맵: 파일명만이 아니라 source + chunk_id 기준으로 기여도 판별
+        # [CHANGED ACCURACY] Retrieval breadth is larger than final context size.
+        bm25_candidates = bm25_retriever.invoke(search_query)
+        vector_candidates = faiss_retriever.vectorstore.similarity_search_with_score(search_query, k=ACC_VECTOR_K)
+        hybrid_candidates = hybrid_retriever.invoke(search_query)
+        reranked_candidates = rerank_documents(hybrid_candidates, message)
+        final_docs = select_context_documents(reranked_candidates, message, ACC_FINAL_CONTEXT_K)
+
         bm25_map = {build_doc_key(d, i + 1): i + 1 for i, d in enumerate(bm25_candidates)}
         vector_map = {build_doc_key(d[0], i + 1): (i + 1, d[1]) for i, d in enumerate(vector_candidates)}
+        rerank_debug_items = getattr(rerank_documents, "last_debug", [])
+        rerank_debug_map = {
+            build_doc_key(item["doc"], item["idx"] + 1): item
+            for item in rerank_debug_items
+        }
 
-        # 최종 앙상블 결과 추출 [cite: 135]
-        final_docs = hybrid_retriever.invoke(search_query)
-        final_docs = rerank_documents(final_docs, message)
-       
         analysis_results = []
         context_parts = []
-       
+
         for i, d in enumerate(final_docs):
-            # [CHANGED] 내규는 조항번호/제목 중심, 그 외는 파일명#청크번호 유지
             doc_key = build_doc_key(d, i + 1)
             chunk_display = format_doc_display(d, i + 1)
-           
+
             in_bm25 = doc_key in bm25_map
             in_vector = doc_key in vector_map
-           
+            rerank_item = rerank_debug_map.get(doc_key)
+
             v_score = round(1 / (1 + vector_map[doc_key][1]), 4) if in_vector else 0.0
             b_rank = bm25_map[doc_key] if in_bm25 else 0
-           
-            reason = "Hybrid" if in_bm25 and in_vector else ("Keyword-Only" if in_bm25 else "Vector-Only")
-            final_score = round(1 / (60 + (i + 1)), 6)
+            final_score = rerank_item["score"] if rerank_item else round(1 / (60 + (i + 1)), 6)
+            reason = " | ".join(rerank_item["reasons"]) if rerank_item else (
+                "Hybrid" if in_bm25 and in_vector else ("Keyword-Only" if in_bm25 else "Vector-Only")
+            )
 
             analysis_results.append({
                 "display": chunk_display,
                 "reason": reason,
                 "b_rank": b_rank,
                 "v_sim": v_score,
-                "final": final_score
+                "final": final_score,
             })
             context_parts.append(f"--- [참조: {chunk_display}] ---\n{d.page_content}")
 
-        # 피드백용 속성 저장 [cite: 140]
+        diagnostic_record = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "question": message,
+            "search_query": search_query,
+            "question_profile": question_profile,
+            "bm25_top": [
+                summarize_doc_candidate(
+                    d,
+                    fallback_rank=i + 1,
+                    bm25_rank=i + 1,
+                    rerank_item=rerank_debug_map.get(build_doc_key(d, i + 1)),
+                )
+                for i, d in enumerate(bm25_candidates)
+            ],
+            "vector_top": [
+                summarize_doc_candidate(
+                    d[0],
+                    fallback_rank=i + 1,
+                    vector_rank=i + 1,
+                    vector_distance=d[1],
+                    rerank_item=rerank_debug_map.get(build_doc_key(d[0], i + 1)),
+                )
+                for i, d in enumerate(vector_candidates)
+            ],
+            "hybrid_before_rerank": [
+                summarize_doc_candidate(
+                    d,
+                    fallback_rank=i + 1,
+                    bm25_rank=bm25_map.get(build_doc_key(d, i + 1), 0),
+                    vector_rank=vector_map.get(build_doc_key(d, i + 1), (0, None))[0],
+                    vector_distance=vector_map.get(build_doc_key(d, i + 1), (0, None))[1],
+                )
+                for i, d in enumerate(hybrid_candidates)
+            ],
+            "rerank_after": [
+                summarize_doc_candidate(
+                    item["doc"],
+                    fallback_rank=i + 1,
+                    bm25_rank=bm25_map.get(build_doc_key(item["doc"], item["idx"] + 1), 0),
+                    vector_rank=vector_map.get(build_doc_key(item["doc"], item["idx"] + 1), (0, None))[0],
+                    vector_distance=vector_map.get(build_doc_key(item["doc"], item["idx"] + 1), (0, None))[1],
+                    rerank_item=item,
+                )
+                for i, item in enumerate(rerank_debug_items)
+            ],
+            "final_context": [
+                summarize_doc_candidate(
+                    d,
+                    fallback_rank=i + 1,
+                    bm25_rank=bm25_map.get(build_doc_key(d, i + 1), 0),
+                    vector_rank=vector_map.get(build_doc_key(d, i + 1), (0, None))[0],
+                    vector_distance=vector_map.get(build_doc_key(d, i + 1), (0, None))[1],
+                    rerank_item=rerank_debug_map.get(build_doc_key(d, i + 1)),
+                )
+                for i, d in enumerate(final_docs)
+            ],
+        }
+        save_diagnostic_log(diagnostic_record)
+
         hana_on_predict.last_turns = context_turns
         hana_on_predict.last_query = search_query
-        hana_on_predict.last_docs = "|".join([r['display'] for r in analysis_results])
-        hana_on_predict.last_reasons = "|".join([r['reason'] for r in analysis_results])
-        hana_on_predict.last_v_scores = "|".join([str(r['v_sim']) for r in analysis_results])
-        hana_on_predict.last_b_ranks = "|".join([str(r['b_rank']) for r in analysis_results])
-        hana_on_predict.last_final_scores = "|".join([str(r['final']) for r in analysis_results])
+        hana_on_predict.last_docs = "|".join([r["display"] for r in analysis_results])
+        hana_on_predict.last_reasons = "|".join([r["reason"] for r in analysis_results])
+        hana_on_predict.last_v_scores = "|".join([str(r["v_sim"]) for r in analysis_results])
+        hana_on_predict.last_b_ranks = "|".join([str(r["b_rank"]) for r in analysis_results])
+        hana_on_predict.last_final_scores = "|".join([str(r["final"]) for r in analysis_results])
+        hana_on_predict.last_diagnostic_path = DIAGNOSTIC_LOG_FILE
 
-        # [Step 3] 최종 답변 생성 [cite: 141, 142]
         context_text = "\n\n".join(context_parts)
-        src_text = ", ".join([r['display'] for r in analysis_results])
-       
+        src_text = ", ".join([r["display"] for r in analysis_results])
+
         res = client.chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": PROMPT_SYSTEM_ROLE},
                 {"role": "user", "content": PROMPT_RAG_USER.format(context=context_text, message=message, src=src_text)}
             ],
-            temperature=0, # 구문 경고 방지를 위해 마지막 인자에도 명확한 쉼표 사용 권장
+            temperature=0,
         )
         return res.choices[0].message.content
 
@@ -559,7 +790,12 @@ def hana_on_predict(message, history, context_turns=0):
         return f"⚠️ Hana_on 시스템 오류: {str(e)}"
 
 
+############################
+'''
 4. Chat UI
+'''
+############################
+
 import gradio as gr
 import pandas as pd
 import os
