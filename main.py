@@ -1,241 +1,4 @@
-###################
-'''
-1. 검색DB(여기서부터 시작)
-- 내규 전용 처리 유틸 신규 생성
-'''
-####################
-import re
-
-INTERNAL_RULE_DIR_NAME = "내규_md"
-
-
-def parse_simple_front_matter(text):
-    """
-    split_ld_rules_to_md*.py가 만든 YAML front matter를 간단 파싱한다.
-    외부 yaml 패키지 없이 key: value 형태만 읽는다.
-    """
-    if not text.startswith("---"):
-        return {}, text
-
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}, text
-
-    end_idx = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            end_idx = i
-            break
-
-    if end_idx is None:
-        return {}, text
-
-    metadata = {}
-    for line in lines[1:end_idx]:
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] == '"':
-            value = value[1:-1]
-        metadata[key] = value
-
-    body = "\n".join(lines[end_idx + 1:]).lstrip()
-    return metadata, body
-
-
-def is_internal_rule_doc(doc):
-    source = str(doc.metadata.get("source", "")).replace("\\", "/")
-    file_name = os.path.basename(source)
-    return (
-        INTERNAL_RULE_DIR_NAME in source
-        or bool(re.match(r"^\d+\.\d+(?:\.\d+)?\.md$", file_name, re.IGNORECASE))
-        or doc.metadata.get("doc_type") == "internal_rule"
-    )
-
-
-def enrich_internal_rule_doc(doc):
-    front_matter, body = parse_simple_front_matter(doc.page_content)
-    if front_matter:
-        doc.metadata.update(front_matter)
-        doc.page_content = body
-
-    if is_internal_rule_doc(doc):
-        doc.metadata["doc_type"] = doc.metadata.get("doc_type", "internal_rule")
-
-    return doc
-
-
-def build_doc_key(doc, fallback_rank=1):
-    source = doc.metadata.get("source", "unknown_source")
-    chunk_id = doc.metadata.get("chunk_id", fallback_rank)
-    return f"{source}::chunk::{chunk_id}"
-
-
-def format_doc_display(doc, fallback_rank=1):
-    """
-    - 내규 데이터: 조항번호 + 제목 중심
-    - 그 외 데이터: 파일명#청크번호 유지
-    """
-    if doc.metadata.get("doc_type") == "internal_rule":
-        doc_code = str(doc.metadata.get("doc_code", "")).strip()
-        section_no = str(doc.metadata.get("section_no", "")).strip()
-        section_title = str(doc.metadata.get("section_title", "")).strip()
-
-        if doc_code and section_no and section_title:
-            return f"{doc_code} {section_no} {section_title}"
-        if section_no and section_title:
-            return f"{section_no} {section_title}"
-        if section_no:
-            return section_no
-
-    file_name = os.path.basename(doc.metadata.get("source", "KMS"))
-    chunk_num = doc.metadata.get("chunk_id", fallback_rank)
-    return f"{file_name}#{chunk_num}"
-
-def infer_question_profile(message):
-    """
-    질문이 규정형/전산형/사례형/기관기준형 중 어디에 가까운지
-    단순 규칙으로 점수화한다.
-    """
-    text = str(message or "").strip()
-
-    rule_keywords = [
-        "한도", "최대한도", "최대 금액", "얼마", "금리", "대상", "대출대상", "대상주택",
-        "채권보전", "승인", "심사", "중도상환", "기한연장", "가능", "불가", "요건", "조건"
-    ]
-    system_keywords = [
-        "전산", "화면", "입력", "등록", "처리", "단말기", "#", "화면번호", "어느 화면"
-    ]
-    case_keywords = [
-        "사례", "케이스", "이런 경우", "이 경우", "실무", "예외", "상담", "처리했는데"
-    ]
-    official_keywords = [
-        "hug", "hf", "sgi", "주택도시보증공사", "주택금융공사", "서울보증보험", "보증기관"
-    ]
-
-    product_hint_keywords = [
-        "전세론", "전세자금", "디딤돌", "버팀목", "우량주택", "대출종류", "상품"
-    ]
-
-    def score_keywords(keywords):
-        return sum(1 for kw in keywords if kw.lower() in text.lower())
-
-    return {
-        "rule_score": score_keywords(rule_keywords) + score_keywords(product_hint_keywords),
-        "system_score": score_keywords(system_keywords),
-        "case_score": score_keywords(case_keywords),
-        "official_score": score_keywords(official_keywords),
-    }
-
-
-def classify_source_type(doc):
-    """
-    문서 출처를 internal_rule / official / faq / kms 로 분류한다.
-    """
-    if doc.metadata.get("doc_type") == "internal_rule" or is_internal_rule_doc(doc):
-        return "internal_rule"
-
-    source = str(doc.metadata.get("source", "")).replace("\\", "/").lower()
-    if "official_md" in source:
-        return "official"
-    if "faq_output_md" in source:
-        return "faq"
-    if "kms_output_md" in source:
-        return "kms"
-    return "other"
-
-
-def rerank_documents(final_docs, message):
-    """
-    기본 우선순위 + 질문 성격을 반영해 문서를 재정렬한다.
-    기본 우선순위:
-    internal_rule > official > faq > kms
-    """
-    profile = infer_question_profile(message)
-    message_text = str(message or "").lower()
-
-    base_weights = {
-        "internal_rule": 4.0,
-        "official": 3.0,
-        "faq": 2.0,
-        "kms": 1.0,
-        "other": 0.0,
-    }
-
-    reranked = []
-    for idx, doc in enumerate(final_docs):
-        source_type = classify_source_type(doc)
-        score = base_weights.get(source_type, 0.0)
-
-        section_title = str(doc.metadata.get("section_title", "")).lower()
-        parent_section_title = str(doc.metadata.get("parent_section_title", "")).lower()
-        doc_title = str(doc.metadata.get("doc_title", "")).lower()
-        page_content = str(doc.page_content or "").lower()
-
-        # 질문이 규정형이면 내규와 official에 가산점
-        if profile["rule_score"] >= 2:
-            if source_type == "internal_rule":
-                score += 3.0
-            elif source_type == "official":
-                score += 1.5
-
-        # 질문이 전산형이면 kms 가산점
-        if profile["system_score"] >= 1 and source_type == "kms":
-            score += 3.0
-
-        # 질문이 사례형이면 faq/kms에 가산점
-        if profile["case_score"] >= 1:
-            if source_type == "faq":
-                score += 1.5
-            elif source_type == "kms":
-                score += 2.0
-
-        # 기관기준형 질문이면 official 가산점
-        if profile["official_score"] >= 1 and source_type == "official":
-            score += 2.5
-
-        # 내규 조항명 직접 매칭 가산점
-        if "대출한도" in message_text or "한도" in message_text or "최대 금액" in message_text:
-            if "대출한도" in section_title:
-                score += 4.0
-            elif "대출한도" in page_content:
-                score += 1.5
-
-        if "대상주택" in message_text and "대상주택" in section_title:
-            score += 4.0
-        if "대출대상" in message_text or ("대상" in message_text and "대출대상" in section_title):
-            if "대출대상" in section_title:
-                score += 4.0
-        if "금리" in message_text and "대출금리" in section_title:
-            score += 4.0
-        if "채권보전" in message_text and "채권보전" in section_title:
-            score += 4.0
-        if "승인" in message_text and ("심사 및 승인" in section_title or "승인" in section_title):
-            score += 3.0
-
-        # 상품명 비슷한 조항을 우대
-        matched_terms = 0
-        for token in ["우량주택전세론", "버팀목", "디딤돌", "전세자금", "전세론"]:
-            if token.lower() in message_text:
-                if token.lower() in section_title or token.lower() in parent_section_title or token.lower() in doc_title:
-                    matched_terms += 1
-        score += matched_terms * 2.0
-
-        # 숫자/금액형 질문은 금액 표현이 있는 조항을 조금 우대
-        if any(keyword in message_text for keyword in ["억원", "백만원", "금액", "최대"]):
-            if any(keyword in page_content for keyword in ["억원", "백만원", "최대"]):
-                score += 0.8
-
-        # 기존 순위가 너무 무시되지 않도록 약한 tie-breaker 반영
-        score += max(0, 0.3 - (idx * 0.02))
-
-        reranked.append((score, idx, doc))
-
-    reranked.sort(key=lambda x: (-x[0], x[1]))
-    return [doc for _, _, doc in reranked]
-# [ADDED][COPY-PASTE BLOCK 1 END]
+# 01. 검색 DB
 
 import os
 
@@ -278,7 +41,7 @@ class RemoteBgeEmbeddings(Embeddings):
 '''
 ###################
 
-def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./official_md","./내규_md"]):
+def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./official_md","./내규소수2_md"]):
     """
     KMS와 FAQ에 개별 청킹을 적용하고, FAISS(벡터)와 BM25(키워드)를 결합한 하이브리드 리트리버를 반환합니다.
     """
@@ -287,8 +50,6 @@ def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./off
     # [규칙 정의] 소스별 서로 다른 스플리터 설정
     kms_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
     faq_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-    # [ADDED] 내규는 이미 조항 단위 파일이므로 기본적으로 재청킹하지 않는다.
-    rule_overflow_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=200)
 
     try:
         for path in paths:
@@ -298,27 +59,10 @@ def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./off
             loader = DirectoryLoader(path, glob="*.md", loader_cls=TextLoader,
                                      loader_kwargs={'encoding': 'utf-8', 'autodetect_encoding': True})
             documents = loader.load()
-
-            # [CHANGED] 내규_md 문서는 front matter를 metadata로 이동
-            documents = [enrich_internal_rule_doc(doc) for doc in documents]
-
-            is_faq_path = "faq" in path.lower()
-            is_rule_path = INTERNAL_RULE_DIR_NAME in path
            
             for doc in documents:
                 if is_rule_path and is_internal_rule_doc(doc):
-                    # [CHANGED] 내규 데이터는 이미 10.1 / 10.1.1 등 의미 단위로 분리됨
-                    if len(doc.page_content) <= 3000:
-                        doc.metadata["chunk_id"] = 1
-                        all_splits.append(doc)
-                    else:
-                        file_splits = rule_overflow_splitter.split_documents([doc])
-                        for i, split in enumerate(file_splits):
-                            split.metadata["chunk_id"] = i + 1
-                            all_splits.append(split)
-                else:
-                    current_splitter = faq_splitter if is_faq_path else kms_splitter
-                    file_splits = current_splitter.split_documents([doc])
+                    file_splits = rule_overflow_splitter.split_documents([doc])
                     for i, split in enumerate(file_splits):
                         split.metadata["chunk_id"] = i + 1
                         all_splits.append(split)
@@ -342,7 +86,7 @@ def prepare_hybrid_retriever(paths=["./kms_output_md", "./faq_output_md", "./off
             weights=[0.3, 0.7]
         )
 
-        print("✨ [KMS:800 / FAQ:2000 / 내규:무청킹(장문만 3000)] 하이브리드 리트리버 시스템 구축 완료!")
+        print("✨ [KMS:800 / FAQ:2000 ] 하이브리드 리트리버 시스템 구축 완료!")
         return hybrid_retriever
 
     except Exception as e:
@@ -384,7 +128,7 @@ import os
 from datetime import datetime
 import gradio as gr
 
-FEEDBACK_FILE = "timo_ver0.3_hana_on_feedback_log.csv"
+FEEDBACK_FILE = "hana_on_feedback_log.csv"
 # [2] 피드백 저장 함수 (상세 로그 반영)
 def handle_like(data: gr.LikeData, history, *args):
     try:
@@ -556,6 +300,7 @@ def hana_on_predict(message, history, context_turns=0):
         hana_on_predict.last_v_scores = "|".join([str(r['v_sim']) for r in analysis_results])
         hana_on_predict.last_b_ranks = "|".join([str(r['b_rank']) for r in analysis_results])
         hana_on_predict.last_final_scores = "|".join([str(r['final']) for r in analysis_results])
+        hana_on_predict.last_context = final_docs
 
         # [Step 3] 최종 답변 생성 [cite: 141, 142]
         context_text = "\n\n".join(context_parts)
@@ -569,10 +314,7 @@ def hana_on_predict(message, history, context_turns=0):
             ],
             temperature=0, # 구문 경고 방지를 위해 마지막 인자에도 명확한 쉼표 사용 권장
         )
-        return res.choices[0].message.content
-
-    except Exception as e:
-        return f"⚠️ Hana_on 시스템 오류: {str(e)}"
+    return res.choices[0].message.content
 
 
 ############################

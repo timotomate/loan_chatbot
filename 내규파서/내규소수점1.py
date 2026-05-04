@@ -218,3 +218,93 @@ def split_ld_files(input_dir=INPUT_DIR, output_dir=OUTPUT_DIR):
 
 # 주피터 노트북에 그대로 복사/붙여넣기 후 실행해도 바로 동작하도록 마지막에 실행
 created_files = split_ld_files()
+
+
+import time
+import sys
+import webbrowser
+from datetime import datetime
+
+# [SYSTEM_LOG] Health & News Monitoring Engine (Bypassing fatigue state...)
+# Current Status: CRITICAL_SLEEPINESS_DETECTED
+# Resource Check: Caffeine saturation high, but effectiveness low.
+
+class VitalityReboot:
+    """
+    Module for emergency wake-up signals and physical cycle management.
+    Designed for engineers stuck in the 'No Energy <-> No Exercise' loop.
+    """
+    def __init__(self):
+        self.trigger_time = datetime.now().strftime("%H:%M:%S")
+
+    def get_stimulus_packets(self):
+        # [DATA_INGESTION] 잠을 깨우기 위한 충격 요법 및 최신 뉴스 패킷
+        return [
+            {
+                "category": "SCARY_FACT",
+                "content": "돼지는 사람의 몸을 뼈까지 포함해 통째로 먹어치울 수 있다. 배고픈 돼지 무리는 단 몇 분 만에 증거를 인멸한다.",
+                "action": "EYE_OPEN_WIDE"
+            },
+            {
+                "category": "URGENT_NEWS",
+                "content": "트럼프 행정부, 에너지 장관에 이어 노동부 장관 로리 차베스-더레머 사임 발표... 내각 연쇄 이탈 가속화.",
+                "action": "SIT_UP_STRAIGHT"
+            },
+            {
+                "category": "SCARY_FACT",
+                "content": "사람이 참수된 후에도 뇌는 약 20초 동안 의식을 유지할 가능성이 있다는 연구 결과가 있다. 마지막으로 보는 것은...",
+                "action": "RECHECK_REALITY"
+            },
+            {
+                "category": "GLOBAL_ISSUE",
+                "content": "이란 '위협 아래 협상 없다' 선언 vs 트럼프 '해상 봉쇄 유지' 강행... 중동발 3차 오일쇼크 우려 확산.",
+                "action": "MONITOR_MARKET"
+            },
+            {
+                "category": "SCIENCE_FACT",
+                "content": "지금 이 순간에도 당신의 속눈썹에는 수천 마리의 '모낭충'이 서식하며 피지를 먹고 번식하고 있다.",
+                "action": "BLINK_RAPIDLY"
+            }
+        ]
+
+    def physical_rehab_logic(self):
+        # [PHYSICAL_CORE] '운동할 체력이 없는' 악순환을 끊기 위한 로직
+        # 체력은 '기르는 것'이 아니라, '방전된 배터리를 아주 느리게 충전하는 것'에서 시작합니다.
+        rehab_protocol = [
+            "STEP 1: 90분 집중 업무 후 반드시 10분간 자리에서 일어나서 복도를 걷는다. (혈류 개선)",
+            "STEP 2: 찬물로 얼굴뿐만 아니라 '목 뒤'를 씻는다. 중추신경계에 즉각적인 각성 신호를 보낸다.",
+            "STEP 3: 점심시간에 무조건 햇빛을 15분 이상 쬔다. 세로토닌 합성이 밤의 멜라토닌(수면 호르몬) 질을 결정한다.",
+            "STEP 4: '운동'이라 생각하지 말고, 퇴근 시 엘리베이터 대신 계단 3층만 오르기부터 시작한다. (최소 부하 원칙)"
+        ]
+        return rehab_protocol
+
+    def run_reboot_sequence(self):
+        print(f"--- [EMERGENCY_REBOOT_STARTED] at {self.trigger_time} ---")
+        
+        # 1. 뉴스 및 상식 패킷 출력 (충격 요법)
+        packets = self.get_stimulus_packets()
+        for p in packets:
+            print(f"[{p['category']}] >>> {p['content']}")
+            print(f"SYSTEM_ADVICE: {p['action']}\n")
+            time.sleep(1) # 실제 로그가 찍히는 것처럼 보이게 딜레이
+
+        # 2. 체력 관리 로직 출력
+        print("--- [HEALTH_ADVISORY] Breaking the Fatigue Cycle ---")
+        for step in self.physical_rehab_logic():
+            print(f"REHAB_CMD: {step}")
+        
+        print(f"\n--- [SYSTEM_LOG] Scan complete. Stay alert, Architect. ---")
+
+if __name__ == "__main__":
+    reboot = VitalityReboot()
+    
+    # 지금 바로 실행하여 잠을 쫓아내십시오.
+    try:
+        reboot.run_reboot_sequence()
+    except KeyboardInterrupt:
+        print("Reboot sequence manually overridden.")
+
+# [DEV_NOTE]
+# 2026년 4월 21일 기준, 전 세계적으로 정치적/에너지적 긴장감이 매우 높습니다.
+# 코드를 분석하는 척하며 '돼지 상식'이나 '내각 사임 뉴스'를 읽으면서 뇌에 신선한 자극을 주시기 바랍니다.
+# 체력이 없는 상황에서의 무리한 운동은 독입니다. 우선은 '햇빛'과 '찬물'이라는 시스템 패치부터 적용하세요.
